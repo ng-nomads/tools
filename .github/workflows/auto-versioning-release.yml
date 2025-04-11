@@ -61,7 +61,7 @@ jobs:
       - name: Setup Node.js to get NPM version
         uses: actions/setup-node@v3
         with:
-          node-version: '22'
+          node-version: latest
 
       - name: Get latest version from NPM
         id: get-npm-version
