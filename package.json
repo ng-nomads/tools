@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "start": "npm run start --workspaces"
+    "start": "npm run start --workspaces",
+    "publish": "node ./publish-all.js"
   },
   "devDependencies": {
      "@types/node": "^20.0.0",
