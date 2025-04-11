@@ -1,6 +1,10 @@
 {
   "name": "@ng-nomads/tools",
   "version": "0.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
   "description": "",
   "main": "index.js",
   "workspaces": [
@@ -9,9 +13,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "start": "npm run start --workspaces",
-    "publish": "npm publish && node ./publish-all.js"
-  },
-  "devDependencies": {
+    "publish": "npm publish --access public && node ./publish-all.js"
   },
   "keywords": ["ng-nomads", "cli", "angular"],
   "license": "Apache-2.0",

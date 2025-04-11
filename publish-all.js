@@ -26,6 +26,7 @@ const parentVersion = parentPkg.version;
 const parentLicense = parentPkg.license;
 const parentAuthor = parentPkg.author;
 const parentKeywords = parentPkg.keywords || [];
+const publishConfig= parentPkg.publishConfig || {};
 
 console.log(`Using parent version: ${parentVersion}`);
 console.log(`Using parent license: ${parentLicense}`);
@@ -66,11 +67,15 @@ packageFolders.forEach((folderName) => {
   pkg.version = parentVersion;
   pkg.license = parentLicense;
   pkg.author = parentAuthor;
+  pkg.publishConfig = publishConfig;
+  pkg.license = parentLicense;
+  pkg.author = parentAuthor;
   
   // Remove development-only properties that shouldn't be published
   delete pkg.scripts;
   delete pkg.devDependencies;
   
+
   // Merge keywords: union of parent's and package's keywords
   if (pkg.keywords && Array.isArray(pkg.keywords)) {
     pkg.keywords = [...new Set([...pkg.keywords, ...parentKeywords])];
