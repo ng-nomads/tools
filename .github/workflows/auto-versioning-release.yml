@@ -59,9 +59,9 @@ jobs:
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js to get NPM version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: latest
+          node-version: '22'
 
       - name: Get latest version from NPM
         id: get-npm-version
@@ -78,12 +78,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -97,15 +97,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
