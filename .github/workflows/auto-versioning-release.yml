@@ -120,6 +120,7 @@ jobs:
         run: |
           # Create .npmrc file with auth token
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          npm config set access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
