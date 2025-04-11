@@ -233,6 +233,6 @@ jobs:
           # First update the version in package.json
           npm version ${{ steps.determine-version.outputs.release_version }} --no-git-tag-version
           # Then run publish-all which will read from package.json
-          NPM_TOKEN=${{ secrets.NPM_TOKEN }} npm run publish-all
+          npm run publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
