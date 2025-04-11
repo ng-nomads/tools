@@ -140,3 +140,4 @@ dist
 .idea
 .vscode
 .vscode-test
+.npmrc
