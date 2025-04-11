@@ -13,7 +13,7 @@
  *       package.json
  *       src/index.js
  *
- * The package.json content will be based on a template and include:
+ * The generated package.json content will be based on a template and include:
  *
  * {
  *   "name": "@ng-nomads/<workspace-name>",
@@ -24,7 +24,8 @@
  *     "<workspace-name>": "src/index.js"
  *   },
  *   "scripts": {
- *     "start": "node src/index.js"
+ *     "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
+ *     "start": "node dist/index.js"
  *   },
  *   "keywords": [],
  *   "author": "bharathmuppa@gmail.com",
@@ -79,6 +80,8 @@ fs.mkdirSync(workspaceDir, { recursive: true });
 console.log(`Created workspace directory: ${workspaceDir}`);
 
 // Template for package.json
+// Here we add a build script that uses esbuild to bundle/minify the code,
+// which is a common practice in Node-based CLI projects.
 const packageJsonContent = {
   name: `@ng-nomads/${workspaceName}`,
   version: "1.0.0",
@@ -89,7 +92,8 @@ const packageJsonContent = {
     [workspaceName]: "src/index.js"
   },
   scripts: {
-    start: "node src/index.js"
+    "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
+    "start": "node dist/index.js"
   },
   keywords: [],
   license: "ISC",

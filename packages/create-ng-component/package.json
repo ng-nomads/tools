@@ -1,14 +1,15 @@
 {
   "name": "@ng-nomads/create-ng-component",
   "version": "1.0.0",
-  "description": "A CLI tool for creating Angular components",
+  "description": "A CLI tool for <description of the workspace>",
   "main": "src/index.js",
   "author": "bharathmuppa@gmail.com",
   "bin": {
     "create-ng-component": "src/index.js"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "license": "ISC",
