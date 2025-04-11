@@ -1,4 +1,4 @@
-**/dist# Logs
+# Logs
 logs
 *.log
 npm-debug.log*
@@ -134,3 +134,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Project files
+**/dist
+.idea
+.vscode
+.vscode-test
