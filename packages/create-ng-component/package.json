@@ -1,7 +1,7 @@
 {
   "name": "@ng-nomads/create-ng-component",
   "version": "1.0.0",
-  "description": "A CLI tool for <description of the workspace>",
+  "description": "A CLI tool for creating Angular components",
   "main": "src/index.js",
   "author": "bharathmuppa@gmail.com",
   "bin": {
