@@ -3,20 +3,17 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
-  "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces",
     "start": "npm run start --workspaces",
-    "publish": "node ./publish-all.js"
+    "publish": "npm publish && node ./publish-all.js"
   },
   "devDependencies": {
-     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "keywords": ["ng-nomads", "cli", "angular"],
+  "license": "Apache-2.0",
+  "author": "bharathmuppa@gmail.com"
 }

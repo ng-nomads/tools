@@ -1,0 +1,238 @@
+name: Auto-Versioning Release Pipeline
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'features/**'
+      - 'feature/**'
+      - 'feat/**'
+      - 'bug-fix/**'
+      - 'bugfix/**'
+      - 'hot-fix/**'
+      - 'hotfix/**'
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - 'main'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.get-version.outputs.current_version }}
+      branch_name: ${{ steps.extract-branch.outputs.branch_name }}
+      branch_type: ${{ steps.extract-branch.outputs.branch_type }}
+      commit_sha: ${{ steps.short-sha.outputs.short_sha }}
+      npm_latest_version: ${{ steps.get-npm-version.outputs.latest_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Extract branch name
+        id: extract-branch
+        shell: bash
+        run: |
+          BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          
+          if [[ "${BRANCH_NAME}" =~ ^(features|feature|feat)/.*$ ]]; then
+            echo "branch_type=feature" >> $GITHUB_OUTPUT
+          elif [[ "${BRANCH_NAME}" =~ ^(bug-fix|bugfix|hot-fix|hotfix)/.*$ ]]; then
+            echo "branch_type=bugfix" >> $GITHUB_OUTPUT
+          elif [[ "${BRANCH_NAME}" == "main" ]]; then
+            echo "branch_type=main" >> $GITHUB_OUTPUT
+          else
+            echo "branch_type=other" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get short SHA
+        id: short-sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Get current version from package.json
+        id: get-version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js to get NPM version
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Get latest version from NPM
+        id: get-npm-version
+        run: |
+          # Get package name from package.json
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          
+          # Get the latest published version from npm
+          LATEST_VERSION=$(npm view $PACKAGE_NAME version 2>/dev/null || echo "0.0.0")
+          echo "latest_version=${LATEST_VERSION}" >> $GITHUB_OUTPUT
+
+  install-and-test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  release:
+    needs: [setup, install-and-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          
+      - name: Configure NPM
+        run: |
+          # Create .npmrc file with auth token
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Determine release version
+        id: determine-version
+        run: |
+          BRANCH_TYPE=${{ needs.setup.outputs.branch_type }}
+          BRANCH_NAME=${{ needs.setup.outputs.branch_name }}
+          COMMIT_SHA=${{ needs.setup.outputs.commit_sha }}
+          CURRENT_VERSION=${{ needs.setup.outputs.current_version }}
+          NPM_LATEST_VERSION=${{ needs.setup.outputs.npm_latest_version }}
+          
+          # Parse the npm latest version 
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$NPM_LATEST_VERSION"
+          
+          # For feature/bugfix branch pushes: create rc version
+          if [[ ("${BRANCH_TYPE}" == "feature" || "${BRANCH_TYPE}" == "bugfix") && "${{ github.event_name }}" == "push" ]]; then
+            RELEASE_VERSION="${NPM_LATEST_VERSION}-rc.${COMMIT_SHA}"
+          
+          # For PRs to main that are open: create PR version
+          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" && "${{ github.event.pull_request.merged }}" != "true" && ("${{ github.event.action }}" == "opened" || "${{ github.event.action }}" == "reopened" || "${{ github.event.action }}" == "synchronize") ]]; then
+            RELEASE_VERSION="${NPM_LATEST_VERSION}-pr.${{ github.event.pull_request.number }}"
+          
+          # For PRs that are merged: bump version based on branch type and PR message
+          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_BODY="${{ github.event.pull_request.body }}"
+            
+            # Check if PR comes from a feature branch
+            if [[ "${BRANCH_TYPE}" == "feature" ]]; then
+              # Check PR title/body for indicators of major version bump (breaking changes)
+              if [[ "${PR_TITLE}" =~ (\!|BREAKING|MAJOR) || "${PR_BODY}" =~ (\!|BREAKING|MAJOR) ]]; then
+                NEW_MAJOR=$((MAJOR + 1))
+                NEW_VERSION="${NEW_MAJOR}.0.0"
+              else
+                # Default to minor bump for features
+                NEW_MINOR=$((MINOR + 1))
+                NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+              fi
+            # Check if PR comes from a bugfix branch
+            elif [[ "${BRANCH_TYPE}" == "bugfix" ]]; then
+              # Bump patch for bugfixes
+              NEW_PATCH=$((PATCH + 1))
+              NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+            else
+              # Default to current version if can't determine branch type
+              NEW_VERSION="${NPM_LATEST_VERSION}"
+            fi
+            
+            RELEASE_VERSION="${NEW_VERSION}"
+          
+          # For merges that happened directly to main (not from GitHub PR UI)
+          elif [[ "${BRANCH_NAME}" == "main" && "${{ github.event_name }}" == "push" ]]; then
+            # Check if this is a merge commit
+            MERGE_COMMIT=$(git log -1 --pretty=%B | grep -o "Merge" || echo "")
+            if [[ -n "${MERGE_COMMIT}" ]]; then
+              # Try to determine the branch type that was merged
+              MERGED_FROM=$(git log -1 --pretty=%B)
+              
+              if [[ "${MERGED_FROM}" =~ (features|feature|feat)/ ]]; then
+                # Feature branch merged: bump minor
+                NEW_MINOR=$((MINOR + 1))
+                NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+              elif [[ "${MERGED_FROM}" =~ (bug-fix|bugfix|hot-fix|hotfix)/ ]]; then
+                # Bugfix branch merged: bump patch
+                NEW_PATCH=$((PATCH + 1))
+                NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+              else
+                # Default to no release if can't determine branch type
+                NEW_VERSION=""
+              fi
+              
+              if [[ -n "${NEW_VERSION}" ]]; then
+                RELEASE_VERSION="${NEW_VERSION}"
+              else
+                RELEASE_VERSION=""
+              fi
+            else
+              # Regular commit to main (not a merge): no release
+              RELEASE_VERSION=""
+            fi
+          else
+            RELEASE_VERSION=""
+          fi
+          
+          echo "release_version=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
+          echo "Determined release version: ${RELEASE_VERSION}"
+
+      - name: Update package.json version
+        if: steps.determine-version.outputs.release_version != ''
+        run: |
+          # Update version in package.json - redundant with publish step now
+          echo "Version will be updated in the publish step"
+
+      - name: Create tag for release
+        if: steps.determine-version.outputs.release_version != '' && steps.determine-version.outputs.release_version != needs.setup.outputs.current_version && !contains(steps.determine-version.outputs.release_version, '-pr.') && !contains(steps.determine-version.outputs.release_version, '-rc.')
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.determine-version.outputs.release_version }}"
+          git tag -a "v${{ steps.determine-version.outputs.release_version }}" -m "Release ${{ steps.determine-version.outputs.release_version }}"
+          git push origin "v${{ steps.determine-version.outputs.release_version }}"
+          
+          # Only push to the original branch if it's a push event (not a PR)
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            git push origin HEAD:${{ needs.setup.outputs.branch_name }}
+          fi
+
+      - name: Publish package
+        if: steps.determine-version.outputs.release_version != ''
+        run: |
+          # First update the version in package.json
+          npm version ${{ steps.determine-version.outputs.release_version }} --no-git-tag-version
+          # Then run publish-all which will read from package.json
+          NPM_TOKEN=${{ secrets.NPM_TOKEN }} npm run publish-all
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

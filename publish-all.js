@@ -4,12 +4,10 @@
  *
  * This script iterates through all workspaces (packages) in the "packages" folder,
  * updates each package.json with common fields from the parent package.json,
- * and then publishes each package.
+ * copies the updated package.json to the dist folder, and then publishes from dist.
  *
  * Usage:
  *   node publish-all.js
- *
- * This script uses Node's built-in modules and cross-platform file system paths.
  */
 
 const { execSync } = require('child_process');
@@ -45,37 +43,67 @@ const packageFolders = fs.readdirSync(packagesDir).filter((folder) => {
   return fs.statSync(folderPath).isDirectory();
 });
 
-// --- Update Package JSON in Each Workspace and Publish ---
+// --- Update Package JSON in Each Workspace and Publish from Dist ---
 packageFolders.forEach((folderName) => {
   const packagePath = path.join(packagesDir, folderName);
   const packageJsonPath = path.join(packagePath, 'package.json');
-
+  const distPath = path.join(packagePath, 'dist');
+  
   if (!fs.existsSync(packageJsonPath)) {
     console.warn(`Skipping ${folderName}: package.json not found.`);
     return;
   }
-
+  
+  if (!fs.existsSync(distPath)) {
+    console.warn(`Skipping ${folderName}: dist directory not found. Make sure to build before publishing.`);
+    return;
+  }
+  
   // Read and update the package.json of the workspace
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-
+  
+  // Update version and other fields
   pkg.version = parentVersion;
-  // Update other common fields from parent package.json if desired
   pkg.license = parentLicense;
   pkg.author = parentAuthor;
+  
+  // Remove development-only properties that shouldn't be published
+  delete pkg.scripts;
+  delete pkg.devDependencies;
+  
   // Merge keywords: union of parent's and package's keywords
   if (pkg.keywords && Array.isArray(pkg.keywords)) {
     pkg.keywords = [...new Set([...pkg.keywords, ...parentKeywords])];
   } else {
     pkg.keywords = parentKeywords;
   }
-
-  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2), 'utf-8');
+  
+  // Save updated package.json to both the workspace and dist folder
+  const updatedPackageJson = JSON.stringify(pkg, null, 2);
+  fs.writeFileSync(packageJsonPath, updatedPackageJson, 'utf-8');
+  fs.writeFileSync(path.join(distPath, 'package.json'), updatedPackageJson, 'utf-8');
+  
   console.log(`Updated ${folderName}/package.json with version ${parentVersion}`);
-
-  // Publish the package using npm publish in the given package folder.
+  
+  // Copy other necessary files to dist if they exist
+  const filesToCopy = ['README.md', 'LICENSE', '.npmignore'];
+  filesToCopy.forEach(file => {
+    const filePath = path.join(packagePath, file);
+    if (fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, path.join(distPath, file));
+      console.log(`Copied ${file} to dist directory`);
+    }
+  });
+  
+  // Create or update .npmignore in dist to prevent nested dist folders
+  const npmIgnorePath = path.join(distPath, '.npmignore');
+  const npmIgnoreContent = 'dist\n';
+  fs.writeFileSync(npmIgnorePath, npmIgnoreContent, 'utf-8');
+  
+  // Publish the package using npm publish from the dist folder
   try {
-    console.log(`Publishing package ${pkg.name || folderName}...`);
-    execSync('npm publish', { cwd: packagePath, stdio: 'inherit' });
+    console.log(`Publishing package ${pkg.name || folderName} from dist directory...`);
+    execSync('npm publish', { cwd: distPath, stdio: 'inherit' });
     console.log(`Published package ${pkg.name || folderName} successfully.`);
   } catch (err) {
     console.error(`Failed to publish ${pkg.name || folderName}: ${err.message}`);
