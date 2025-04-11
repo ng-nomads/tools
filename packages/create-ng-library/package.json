@@ -1,11 +1,11 @@
 {
-  "name": "@ng-nomads/create-ng-application",
+  "name": "@ng-nomads/create-ng-library",
   "version": "1.0.0",
   "description": "A CLI tool for <description of the workspace>",
   "main": "src/index.js",
   "author": "bharathmuppa@gmail.com",
   "bin": {
-    "create-ng-application": "src/index.js"
+    "create-ng-library": "src/index.js"
   },
   "scripts": {
     "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
