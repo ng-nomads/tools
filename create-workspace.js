@@ -92,8 +92,8 @@ const packageJsonContent = {
     [workspaceName]: "src/index.js"
   },
   scripts: {
-    "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
-    "start": "node dist/index.js"
+    "build": "rm -rf ./dist && npx esbuild ./src/**/*.js  --bundle --minify --platform=node --outdir=./dist",
+    "start": "node src/index.js"
   },
   keywords: [],
   license: "ISC",

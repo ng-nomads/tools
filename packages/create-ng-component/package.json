@@ -8,7 +8,7 @@
     "create-ng-component": "src/index.js"
   },
   "scripts": {
-    "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
+    "build": "rm -rf ./dist && npx esbuild ./src/**/*.js  --bundle --minify --platform=node --outdir=./dist",
     "start": "node dist/index.js"
   },
   "keywords": [],
