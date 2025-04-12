@@ -12,10 +12,11 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "start": "npm run start --workspaces",
-    "publish-workspace": "node ./publish-all.js",
-    "publish-root": "npm publish --access public",
-    "publish": "npm run publish-root || true && npm run publish-workspace"
+  "start": "npm run start --workspaces",
+  "publish-workspace": "node ./publish-all.js",
+  "publish-root": "npm publish --access public || true",
+  "publish": "npm run publish-root && npm run publish-workspace",
+  "prepublishOnly": "echo 'Use npm run publish instead' && exit 1"
   },
   "keywords": ["ng-nomads", "cli", "angular"],
   "license": "Apache-2.0",
