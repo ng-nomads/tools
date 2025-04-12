@@ -203,6 +203,9 @@ jobs:
         run: |
           # Update version in package.json
           npm version ${{ steps.determine-version.outputs.release_version }} --no-git-tag-version
+          
+      - name: Build packages
+        run: npm run build  
 
       - name: Create tag for release
         if: steps.determine-version.outputs.release_version != '' && steps.determine-version.outputs.release_version != needs.setup.outputs.current_version && !contains(steps.determine-version.outputs.release_version, '-pr.') && !contains(steps.determine-version.outputs.release_version, '-rc.')
