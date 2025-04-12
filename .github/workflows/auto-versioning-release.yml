@@ -224,6 +224,6 @@ jobs:
         if: steps.determine-version.outputs.release_version != ''
         run: |
           # Run the publish script which will use the updated version in package.json
-          npm run publish
+          npm run tools-publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
