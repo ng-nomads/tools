@@ -13,7 +13,9 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "start": "npm run start --workspaces",
-    "publish": "npm publish --access public && node ./publish-all.js"
+    "publish-workspace": "node ./publish-all.js",
+    "publish-root": "npm publish --access public",
+    "publish": "npm run publish-root || true && npm run publish-workspace"
   },
   "keywords": ["ng-nomads", "cli", "angular"],
   "license": "Apache-2.0",

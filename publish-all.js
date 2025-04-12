@@ -108,7 +108,7 @@ packageFolders.forEach((folderName) => {
   // Publish the package using npm publish from the dist folder
   try {
     console.log(`Publishing package ${pkg.name || folderName} from dist directory...`);
-    execSync('npm publish', { cwd: distPath, stdio: 'inherit' });
+    execSync('npm publish --access public', { cwd: distPath, stdio: 'inherit' });
     console.log(`Published package ${pkg.name || folderName} successfully.`);
   } catch (err) {
     console.error(`Failed to publish ${pkg.name || folderName}: ${err.message}`);
