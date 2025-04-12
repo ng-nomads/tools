@@ -25,6 +25,8 @@ Or use them directly with npx:
 
 ```bash
 npx @ng-nomads/create-ng-component --name my-component
+
+npm create @ng-nomads/ng-component 
 ```
 
 ## Usage
