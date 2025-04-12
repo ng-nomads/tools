@@ -3,13 +3,12 @@
  * publish-all.js
  *
  * This script iterates through all workspaces (packages) in the "packages" folder,
- * updates each package.json with common fields from the parent package.json,
- * copies the updated package.json to the dist folder, and then publishes from dist.
+ * creates a new package.json for the dist folder with proper path adjustments,
+ * and publishes from the dist folder without modifying the original package.json.
  *
  * Usage:
  *   node publish-all.js
  */
-
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -26,7 +25,7 @@ const parentVersion = parentPkg.version;
 const parentLicense = parentPkg.license;
 const parentAuthor = parentPkg.author;
 const parentKeywords = parentPkg.keywords || [];
-const publishConfig= parentPkg.publishConfig || {};
+const publishConfig = parentPkg.publishConfig || { access: 'public' };
 
 console.log(`Using parent version: ${parentVersion}`);
 console.log(`Using parent license: ${parentLicense}`);
@@ -44,7 +43,7 @@ const packageFolders = fs.readdirSync(packagesDir).filter((folder) => {
   return fs.statSync(folderPath).isDirectory();
 });
 
-// --- Update Package JSON in Each Workspace and Publish from Dist ---
+// --- Create new package.json for dist and publish ---
 packageFolders.forEach((folderName) => {
   const packagePath = path.join(packagesDir, folderName);
   const packageJsonPath = path.join(packagePath, 'package.json');
@@ -60,35 +59,73 @@ packageFolders.forEach((folderName) => {
     return;
   }
   
-  // Read and update the package.json of the workspace
+  // Read the original package.json but don't modify it
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
   
-  // Update version and other fields
-  pkg.version = parentVersion;
-  pkg.license = parentLicense;
-  pkg.author = parentAuthor;
-  pkg.publishConfig = publishConfig;
-  pkg.license = parentLicense;
-  pkg.author = parentAuthor;
+  // Create a new package.json for dist
+  const distPkg = {};
   
-  // Remove development-only properties that shouldn't be published
-  delete pkg.scripts;
-  delete pkg.devDependencies;
+  // Copy over essential fields from the original package.json
+  distPkg.name = pkg.name;
+  distPkg.description = pkg.description || '';
+  distPkg.version = parentVersion;
+  distPkg.license = parentLicense;
+  distPkg.author = parentAuthor;
+  distPkg.dependencies = pkg.dependencies || {};
+  distPkg.peerDependencies = pkg.peerDependencies || {};
+  distPkg.publishConfig = publishConfig;
   
-
-  // Merge keywords: union of parent's and package's keywords
-  if (pkg.keywords && Array.isArray(pkg.keywords)) {
-    pkg.keywords = [...new Set([...pkg.keywords, ...parentKeywords])];
+  // Set correct paths for the published package
+  if (pkg.main && pkg.main.startsWith('src/')) {
+    distPkg.main = pkg.main.replace('src/', '');
+  } else if (pkg.main) {
+    distPkg.main = pkg.main;
   } else {
-    pkg.keywords = parentKeywords;
+    distPkg.main = 'index.js';
   }
   
-  // Save updated package.json to both the workspace and dist folder
-  const updatedPackageJson = JSON.stringify(pkg, null, 2);
-  fs.writeFileSync(packageJsonPath, updatedPackageJson, 'utf-8');
-  fs.writeFileSync(path.join(distPath, 'package.json'), updatedPackageJson, 'utf-8');
+  if (pkg.module && pkg.module.startsWith('src/')) {
+    distPkg.module = pkg.module.replace('src/', '');
+  } else if (pkg.module) {
+    distPkg.module = pkg.module;
+  }
   
-  console.log(`Updated ${folderName}/package.json with version ${parentVersion}`);
+  if (pkg.types && pkg.types.startsWith('src/')) {
+    distPkg.types = pkg.types.replace('src/', '');
+  } else if (pkg.types) {
+    distPkg.types = pkg.types;
+  }
+  
+  // Update bin paths if they exist
+  if (pkg.bin) {
+    if (typeof pkg.bin === 'string' && pkg.bin.startsWith('src/')) {
+      distPkg.bin = pkg.bin.replace('src/', '');
+    } else if (typeof pkg.bin === 'string') {
+      distPkg.bin = pkg.bin;
+    } else if (typeof pkg.bin === 'object') {
+      distPkg.bin = {};
+      Object.keys(pkg.bin).forEach(binName => {
+        if (pkg.bin[binName].startsWith('src/')) {
+          distPkg.bin[binName] = pkg.bin[binName].replace('src/', '');
+        } else {
+          distPkg.bin[binName] = pkg.bin[binName];
+        }
+      });
+    }
+  }
+  
+  // Merge keywords from parent and original package
+  if (pkg.keywords && Array.isArray(pkg.keywords)) {
+    distPkg.keywords = [...new Set([...pkg.keywords, ...parentKeywords])];
+  } else {
+    distPkg.keywords = parentKeywords;
+  }
+  
+  // Write the new package.json to the dist folder only
+  const distPackageJson = JSON.stringify(distPkg, null, 2);
+  fs.writeFileSync(path.join(distPath, 'package.json'), distPackageJson, 'utf-8');
+  
+  console.log(`Created dist package.json for ${folderName} with version ${parentVersion}`);
   
   // Copy other necessary files to dist if they exist
   const filesToCopy = ['README.md', 'LICENSE', '.npmignore'];
