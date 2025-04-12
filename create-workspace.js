@@ -11,29 +11,10 @@
  * This will create:
  *   packages/create-component/
  *       package.json
+ *       README.md
  *       src/index.js
  *
- * The generated package.json content will be based on a template and include:
  *
- * {
- *   "name": "@ng-nomads/<workspace-name>",
- *   "version": "1.0.0",
- *   "description": "A CLI tool for <description of the workspace>",
- *   "main": "src/index.js",
- *   "bin": {
- *     "<workspace-name>": "src/index.js"
- *   },
- *   "scripts": {
- *     "build": "npx esbuild src/index.js --bundle --minify --platform=node --outfile=dist/index.js",
- *     "start": "node dist/index.js"
- *   },
- *   "keywords": [],
- *   "author": "bharathmuppa@gmail.com",
- *   "license": "ISC",
- *   "dependencies": {
- *     "commander": "^10.0.0"
- *   }
- * }
  */
 
 const fs = require('fs');
@@ -80,8 +61,7 @@ fs.mkdirSync(workspaceDir, { recursive: true });
 console.log(`Created workspace directory: ${workspaceDir}`);
 
 // Template for package.json
-// Here we add a build script that uses esbuild to bundle/minify the code,
-// which is a common practice in Node-based CLI projects.
+// Modified build script to preserve src directory structure in dist
 const packageJsonContent = {
   name: `@ng-nomads/${workspaceName}`,
   version: "1.0.0",
@@ -92,7 +72,7 @@ const packageJsonContent = {
     [workspaceName]: "src/index.js"
   },
   scripts: {
-    "build": "rm -rf ./dist && npx esbuild ./src/**/*.js  --bundle --minify --platform=node --outdir=./dist",
+    "build": "rm -rf ./dist && npx esbuild ./src/**/*.js --outdir=./dist/src --platform=node --minify",
     "start": "node src/index.js"
   },
   keywords: [],
@@ -110,6 +90,46 @@ fs.writeFileSync(
 );
 console.log(`Created package.json for workspace "${workspaceName}"`);
 
+// Create README.md file
+const readmeContent = `# @ng-nomads/${workspaceName}
+
+A CLI tool for Angular development.
+
+## Installation
+
+\`\`\`bash
+npm install -g @ng-nomads/${workspaceName}
+\`\`\`
+
+## Usage
+
+\`\`\`bash
+${workspaceName} [options]
+\`\`\`
+
+## Development
+
+### Build
+
+\`\`\`bash
+npm run build
+\`\`\`
+
+### Start
+
+\`\`\`bash
+npm start
+\`\`\`
+
+## License
+
+ISC - © bharathmuppa@gmail.com
+`;
+
+const readmePath = path.join(workspaceDir, 'README.md');
+fs.writeFileSync(readmePath, readmeContent, 'utf8');
+console.log(`Created README.md for workspace "${workspaceName}"`);
+
 // Create src directory and index.js file
 const srcDir = path.join(workspaceDir, 'src');
 if (!fs.existsSync(srcDir)) {
@@ -119,6 +139,15 @@ if (!fs.existsSync(srcDir)) {
 
 const indexJsContent = `#!/usr/bin/env node
 // This is the entry point for the @ng-nomads/${workspaceName} CLI tool.
+const { program } = require('commander');
+
+program
+  .name('${workspaceName}')
+  .description('A CLI tool for Angular development')
+  .version('1.0.0');
+
+program.parse(process.argv);
+
 console.log('Hello from @ng-nomads/${workspaceName} CLI!');
 `;
 const indexJsPath = path.join(srcDir, 'index.js');
