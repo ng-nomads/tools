@@ -128,6 +128,84 @@ jobs:
       - name: Determine release version
         id: determine-version
         run: |
+            BRANCH_TYPE=${{ needs.setup.outputs.branch_type }}
+            BRANCH_NAME=${{ needs.setup.outputs.branch_name }}
+            COMMIT_SHA=${{ needs.setup.outputs.commit_sha }}
+            CURRENT_VERSION=${{ needs.setup.outputs.current_version }}
+            NPM_LATEST_VERSION=${{ needs.setup.outputs.npm_latest_version }}
+            
+            # Parse the npm latest version (if needed later for bumping)
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$NPM_LATEST_VERSION"
+            
+            # For feature/bugfix branch pushes: create rc version
+            if [[ ("${BRANCH_TYPE}" == "feature" || "${BRANCH_TYPE}" == "bugfix") && "${{ github.event_name }}" == "push" ]]; then
+              # Check if NPM_LATEST_VERSION already contains an -rc suffix
+              if [[ "${NPM_LATEST_VERSION}" =~ -rc\.[0-9a-f]+$ ]]; then
+                # Remove the existing -rc.<hash> from the version
+                BASE_VERSION=$(echo "${NPM_LATEST_VERSION}" | sed -E 's/-rc\.[0-9a-f]+$//')
+                RELEASE_VERSION="${BASE_VERSION}-rc.${COMMIT_SHA}"
+              else
+                RELEASE_VERSION="${NPM_LATEST_VERSION}-rc.${COMMIT_SHA}"
+              fi
+            
+            # For PRs to main that are open: create PR version
+            elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" && "${{ github.event.pull_request.merged }}" != "true" && ( "${{ github.event.action }}" == "opened" || "${{ github.event.action }}" == "reopened" || "${{ github.event.action }}" == "synchronize" ) ]]; then
+              RELEASE_VERSION="${NPM_LATEST_VERSION}-pr.${{ github.event.pull_request.number }}"
+            
+            # For PRs that are merged: bump version based on branch type and PR message
+            elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+              PR_TITLE="${{ github.event.pull_request.title }}"
+              PR_BODY="${{ github.event.pull_request.body }}"
+              
+              if [[ "${BRANCH_TYPE}" == "feature" ]]; then
+                if [[ "${PR_TITLE}" =~ (\!|BREAKING|MAJOR) || "${PR_BODY}" =~ (\!|BREAKING|MAJOR) ]]; then
+                  NEW_MAJOR=$((MAJOR + 1))
+                  NEW_VERSION="${NEW_MAJOR}.0.0"
+                else
+                  NEW_MINOR=$((MINOR + 1))
+                  NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+                fi
+              elif [[ "${BRANCH_TYPE}" == "bugfix" ]]; then
+                NEW_PATCH=$((PATCH + 1))
+                NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+              else
+                NEW_VERSION="${NPM_LATEST_VERSION}"
+              fi
+              
+              RELEASE_VERSION="${NEW_VERSION}"
+            
+            # For direct pushes to main (e.g., merge commits)
+            elif [[ "${BRANCH_NAME}" == "main" && "${{ github.event_name }}" == "push" ]]; then
+              MERGE_COMMIT=$(git log -1 --pretty=%B | grep -o "Merge" || echo "")
+              if [[ -n "${MERGE_COMMIT}" ]]; then
+                MERGED_FROM=$(git log -1 --pretty=%B)
+                if [[ "${MERGED_FROM}" =~ (features|feature|feat)/ ]]; then
+                  NEW_MINOR=$((MINOR + 1))
+                  NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+                elif [[ "${MERGED_FROM}" =~ (bug-fix|bugfix|hot-fix|hotfix)/ ]]; then
+                  NEW_PATCH=$((PATCH + 1))
+                  NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+                else
+                  NEW_VERSION=""
+                fi
+                
+                if [[ -n "${NEW_VERSION}" ]]; then
+                  RELEASE_VERSION="${NEW_VERSION}"
+                else
+                  RELEASE_VERSION=""
+                fi
+              else
+                RELEASE_VERSION=""
+              fi
+            else
+              RELEASE_VERSION=""
+            fi
+            
+            echo "release_version=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
+            echo "Determined release version: ${RELEASE_VERSION}"
+     
+        id: determine-version
+        run: |
           BRANCH_TYPE=${{ needs.setup.outputs.branch_type }}
           BRANCH_NAME=${{ needs.setup.outputs.branch_name }}
           COMMIT_SHA=${{ needs.setup.outputs.commit_sha }}
